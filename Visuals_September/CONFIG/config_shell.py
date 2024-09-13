@@ -1,1 +1,1 @@
-ENV_NAME = "visuals_alpha"
+ENV_NAME = "visuals_panel"

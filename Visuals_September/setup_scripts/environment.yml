@@ -1,16 +1,19 @@
-name: visuals_alpha
+name: visuals_panel
 channels:
   - defaults
+  - conda-forge
 dependencies:
+  - bokeh=3.3.0
+  - geopandas
+  - ipykernel
+  - jupyter_bokeh
   - matplotlib
   - numpy
   - pandas
   - pip
-  - python=3.9
-  - scikit-learn
-  - bokeh
-  - jupyter_bokeh
-  - shapely
   - pyproj
-  - geopandas
-prefix: /Users/jbelmont/anaconda3/envs/visuals_alpha
+  - python 
+  - scikit-learn
+  - selenium
+  - shapely
+prefix: /Users/jbelmont/anaconda3/envs/visuals_panel
