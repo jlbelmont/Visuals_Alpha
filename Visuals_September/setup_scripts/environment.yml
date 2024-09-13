@@ -1,0 +1,16 @@
+name: visuals_alpha
+channels:
+  - defaults
+dependencies:
+  - matplotlib
+  - numpy
+  - pandas
+  - pip
+  - python=3.9
+  - scikit-learn
+  - bokeh
+  - jupyter_bokeh
+  - shapely
+  - pyproj
+  - geopandas
+prefix: /Users/jbelmont/anaconda3/envs/visuals_alpha
