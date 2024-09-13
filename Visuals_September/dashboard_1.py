@@ -34,3 +34,6 @@ def grab_data(tuple):
 def search():
     pass
 
+def standardize_df():
+    pass
+
