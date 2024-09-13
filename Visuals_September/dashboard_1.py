@@ -19,3 +19,18 @@ from bokeh.themes import Theme
 from bokeh.application import Application
 from bokeh.application.handlers import FunctionHandler
 
+
+class Dashboard():
+    
+    def __init__(self) -> None:
+        pass
+
+def create_dashboard():
+    pass
+
+def grab_data(tuple):
+    pass
+
+def search():
+    pass
+
