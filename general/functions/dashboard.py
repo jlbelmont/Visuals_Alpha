@@ -6,20 +6,45 @@ from bokeh.plotting import figure, output_notebook, output_file, show
 from bokeh.layouts import column, row
 from bokeh.io import curdoc
 from bokeh.palettes import Category10, Category20
+from PIL import Image
+import cv2
+import matplotlib.pyplot as plt
+
+###############################
+# MAKE FRAMES NEXT TO SCATTER #
+###############################
+
+###############################
+# LABEL THE AXES OF THE PLOTS #
+###############################
+
+###############################################
+# UMAP TICK WIDTHS/SCALES ARE CLEARLY DEFINED #
+###############################################
+
+# Singleton to manage dashboard initialization
+class Dashboard:
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(Dashboard, cls).__new__(cls)
+            cls._doc_initialized = False
+        return cls._instance
+
+    def initialize_output(self, notebook: bool = False, file_name: str = "data_visualization_dashboard.html") -> None:
+        """Initializes the output for Bokeh visualizations."""
+        if not self._doc_initialized:
+            if notebook:
+                output_notebook()
+            else:
+                output_file(file_name)
+            self._doc_initialized = True
+
+dashboard = Dashboard()  # Singleton instance
 
 # Function to prepare wedge data for donut plots
 def prepare_wedge_data(data: pd.DataFrame, column_name: str, colors: List[str]) -> pd.DataFrame:
-    """
-    Prepares wedge data for creating donut plots.
-
-    Parameters:
-        data (pd.DataFrame): DataFrame containing the data.
-        column_name (str): Column name for which wedge data is prepared.
-        colors (List[str]): List of colors for each category.
-
-    Returns:
-        pd.DataFrame: DataFrame containing start angles, end angles, colors, categories, and sizes.
-    """
     counts = data[column_name].value_counts()
     categories = sorted(counts.index)
     sizes = counts.loc[categories].values
@@ -36,120 +61,97 @@ def prepare_wedge_data(data: pd.DataFrame, column_name: str, colors: List[str]) 
         'value': sizes
     })
 
-# Placeholder function
-def frame() -> None:
-    """Placeholder function for frame."""
-    pass
+# Function to extract a frame from video (assumed functionality)
+def extract_frame():
+    # Placeholder: replace with actual frame extraction logic
+    return np.zeros((480, 640, 3), dtype=np.uint8)  # Dummy BGR image
 
-# Placeholder function
-def video() -> None:
-    """Placeholder function for video."""
-    pass
+def display_frame() -> None:
+    video_frame = extract_frame()  # Assuming extract_frame returns a BGR frame
+    frame_rgb = cv2.cvtColor(video_frame, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(frame_rgb)
+    
+    img_rgba = pil_img.convert("RGBA")
+    img_width, img_height = img_rgba.size
+    img_data = np.array(img_rgba)
+    
+    flat_img = img_data.view(np.uint32).reshape((img_height, img_width))
+    
+    p = figure(width=img_width, height=img_height, x_range=(0, img_width), y_range=(0, img_height))
+    p.image_rgba(image=[flat_img], x=0, y=0, dw=img_width, dh=img_height)
+    
+    curdoc().add_root(column(p))
 
-# Placeholder function
-def scatter() -> None:
-    """Placeholder function for scatter."""
-    pass
-
-# Placeholder function
-def scatter_minimap() -> None:
-    """Placeholder function for scatter minimap."""
-    pass
-
-# Function to arrange graphs
-def arrange(graphs: List) -> None:
-    """
-    Arrange a list of graphs.
-
-    Parameters:
-        graphs (List): List of graph figures to arrange.
-
-    Returns:
-        None
-    """
-    pass  # Implementation needed
-
-# Placeholder function
-def display() -> None:
-    """Placeholder function for display."""
-    pass
-
-# Placeholder function
-def html_dash() -> None:
-    """Placeholder function for HTML dashboard."""
-    pass
-
-# Placeholder function
-def latex_dash() -> None:
-    """Placeholder function for LaTeX dashboard."""
-    pass
-
-# Placeholder function
-def extra() -> None:
-    """Placeholder function for extra features."""
-    pass
-
-# Function to initialize output for Bokeh
-def initialize_output(notebook: bool = False, file_name: str = "data_visualization_dashboard.html") -> None:
-    """
-    Initializes the output for Bokeh visualizations.
-
-    Parameters:
-        notebook (bool): If True, outputs to a Jupyter notebook. Defaults to False.
-        file_name (str): Filename for HTML output. Defaults to "data_visualization_dashboard.html".
-
-    Returns:
-        None
-    """
-    if notebook:
-        output_notebook()
+def scatter_plot(df: pd.DataFrame) -> None:
+    """Creates a scatter plot from the provided DataFrame."""
+    if all(col in df.columns for col in ['frame', 'coordinates', 'cluster']):
+        df[['x', 'y']] = pd.DataFrame(df['coordinates'].tolist(), index=df.index)
+        
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(df['x'], df['y'], c=df['cluster'], cmap='viridis', alpha=0.6)
+        plt.title("Scatter Plot by Cluster")
+        plt.xlabel("X-axis")
+        plt.ylabel("Y-axis")
+        plt.colorbar(scatter, label='Cluster')
+        plt.grid(True)
+        plt.show()
     else:
-        output_file(file_name)
+        print("DataFrame must contain 'frame', 'coordinates', and 'cluster' columns.")
 
-# Function to create a ColumnDataSource
+def scatter_with_minimap(df: pd.DataFrame) -> None:
+    """Creates a scatter plot with a minimap."""
+    if all(col in df.columns for col in ['frame', 'coordinates', 'cluster']):
+        df[['x', 'y']] = pd.DataFrame(df['coordinates'].tolist(), index=df.index)
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        scatter = ax.scatter(df['x'], df['y'], c=df['cluster'], cmap='viridis', alpha=0.6)
+        ax.set_title("Scatter Plot with Minimap")
+        ax.set_xlabel("X-axis")
+        ax.set_ylabel("Y-axis")
+        plt.colorbar(scatter, label='Cluster')
+
+        ax_inset = fig.add_axes([0.65, 0.65, 0.2, 0.2])  # Position of the minimap
+        ax_inset.scatter(df['x'], df['y'], c=df['cluster'], cmap='viridis', alpha=0.6)
+        ax_inset.set_xlim(df['x'].mean() - 0.1, df['x'].mean() + 0.1)  # Zoom in x-axis
+        ax_inset.set_ylim(df['y'].mean() - 0.1, df['y'].mean() + 0.1)  # Zoom in y-axis
+        
+        plt.show()
+    else:
+        print("DataFrame must contain 'frame', 'coordinates', and 'cluster' columns.")
+
+def arrange(graphs: List) -> None: pass
+def display() -> None: pass
+
+def html_dashboard() -> None:
+    """Creates a link to the dashboard."""
+    link = Div(text='<h1>Scatter Plot Dashboard</h1>'
+                    '<p><a href="http://localhost:5006" target="_blank">Open Dashboard</a></p>',
+                width=400)
+    
+    curdoc().add_root(column(link))
+
+def latex_dashboard(equation: str) -> None:
+    """Displays a LaTeX equation in the dashboard."""
+    latex_div = Div(text=f'<h1>LaTeX Equation</h1>'
+                         f'<p>{equation}</p>', 
+                    width=400, height=100)
+    
+    curdoc().add_root(latex_div)
+
+def extra() -> None: pass
+
+# Function to create ColumnDataSource
 def create_column_data_source(data: pd.DataFrame) -> ColumnDataSource:
-    """
-    Creates a Bokeh ColumnDataSource from a DataFrame.
-
-    Parameters:
-        data (pd.DataFrame): The DataFrame to convert.
-
-    Returns:
-        ColumnDataSource: Bokeh ColumnDataSource containing the data.
-    """
     return ColumnDataSource(data)
 
-# Function to map colors to DataFrame
+# Function to map colors to a DataFrame
 def map_colors(data: pd.DataFrame, column_name: str, palette: List[str], new_column_name: str = 'color') -> pd.DataFrame:
-    """
-    Maps colors to a new column in the DataFrame based on values in the specified column.
-
-    Parameters:
-        data (pd.DataFrame): The DataFrame to modify.
-        column_name (str): The column to map colors from.
-        palette (List[str]): List of colors for mapping.
-        new_column_name (str): Name of the new column for colors. Defaults to 'color'.
-
-    Returns:
-        pd.DataFrame: DataFrame with the new color column added.
-    """
     data[new_column_name] = data[column_name].map(lambda cluster: palette[cluster-1])
     return data
 
 # Function to create a donut plot
 def create_donut_plot(title: str, wedge_data: pd.DataFrame, column_name: str, radius: float = 0.8) -> figure:
-    """
-    Creates a donut plot based on provided wedge data.
-
-    Parameters:
-        title (str): Title of the plot.
-        wedge_data (pd.DataFrame): DataFrame containing wedge data.
-        column_name (str): Column name used for the legend.
-        radius (float): Radius of the donut. Defaults to 0.8.
-
-    Returns:
-        figure: Bokeh figure object containing the donut plot.
-    """
     plot = figure(height=350, width=350, title=title, tools='hover',
                   tooltips=f"@{column_name}: @value", x_range=(-1, 1), y_range=(-1, 1))
     plot.wedge(x=0, y=0, radius=radius, start_angle='start_angle', end_angle='end_angle',
@@ -161,18 +163,6 @@ def create_donut_plot(title: str, wedge_data: pd.DataFrame, column_name: str, ra
 
 # Function to create a scatter plot
 def create_scatter_plot(data_source: ColumnDataSource, tooltips: List[str], width: int = 800, height: int = 400) -> figure:
-    """
-    Creates a scatter plot based on the provided data source.
-
-    Parameters:
-        data_source (ColumnDataSource): The data source for the plot.
-        tooltips (List[str]): Tooltips to display on hover.
-        width (int): Width of the plot. Defaults to 800.
-        height (int): Height of the plot. Defaults to 400.
-
-    Returns:
-        figure: Bokeh figure object containing the scatter plot.
-    """
     scatter = figure(
         title="Detailed Scatter Plot",
         tools="pan,wheel_zoom,box_zoom,reset,hover",
@@ -187,17 +177,6 @@ def create_scatter_plot(data_source: ColumnDataSource, tooltips: List[str], widt
 
 # Function to create a minimap
 def create_minimap(data_source: ColumnDataSource, detailed_plot: figure, width: int = 800) -> figure:
-    """
-    Creates a minimap for the detailed scatter plot.
-
-    Parameters:
-        data_source (ColumnDataSource): The data source for the minimap.
-        detailed_plot (figure): The detailed plot to be miniaturized.
-        width (int): Width of the minimap. Defaults to 800.
-
-    Returns:
-        figure: Bokeh figure object containing the minimap.
-    """
     minimap = figure(
         width=width,
         height=150,
@@ -210,7 +189,6 @@ def create_minimap(data_source: ColumnDataSource, detailed_plot: figure, width: 
     minimap.x_range.range_padding = 0
     minimap.ygrid.grid_line_color = None
 
-    # Add RangeTool
     range_tool = RangeTool(x_range=detailed_plot.x_range, y_range=detailed_plot.y_range)
     range_tool.overlay.fill_color = "darkblue"
     range_tool.overlay.fill_alpha = 0.3
@@ -218,105 +196,45 @@ def create_minimap(data_source: ColumnDataSource, detailed_plot: figure, width: 
 
     return minimap
 
-# Function to create a toggle button for the minimap
 def create_toggle_button(minimap: figure) -> Button:
-    """
-    Creates a button to toggle the visibility of the minimap.
-
-    Parameters:
-        minimap (figure): The minimap figure to toggle.
-
-    Returns:
-        Button: Bokeh Button object for toggling the minimap.
-    """
-    button = Button(label="Toggle Minimap", button_type="success")
-    button.js_on_click(CustomJS(args=dict(minimap=minimap), code="""
+    """Creates a toggle button for the minimap."""
+    toggle_button = Button(label="Toggle Minimap", button_type="success")
+    toggle_button.js_on_click(CustomJS(args=dict(minimap=minimap), code="""
         minimap.visible = !minimap.visible;
     """))
-    return button
+    return toggle_button
 
-# Function to create a text blurb
-def create_text_blurb() -> Div:
-    """
-    Creates a text blurb for the dashboard.
+def create_toggleable_object(label: str, obj, button_position: str = "below") -> column:
+    """Creates a layout with a toggle button for the object."""
+    toggle_button = Button(label=f"Toggle {label}", button_type="success")
+    toggle_button.js_on_click(CustomJS(args=dict(obj=obj), code=f"""
+        obj.visible = !obj.visible;
+    """))
+    return column(toggle_button, obj)
 
-    Returns:
-        Div: Bokeh Div object containing the text blurb.
-    """
-    return Div(text="""
-        <h2>Data Visualization Dashboard</h2>
-        <p>This dashboard includes various visualizations to help understand the dataset:</p>
-        <ul>
-            <li>Donut plots representing <b>clusters</b> and <b>age groups</b>.</li>
-            <li>A detailed scatter plot with an interactive minimap.</li>
-            <li>Multiple image placeholders for relevant graphics.</li>
-            <li>Additional graph placeholders for further analysis.</li>
-            <li>A video placeholder for visual content.</li>
-        </ul>
-        <p>Mathematical formula example: \( E = mc^2 \)</p>
-    """, width=800)
+# This is an entry point to the dashboard
+def main():
+    dashboard.initialize_output(notebook=False)  # Set to True if using Jupyter Notebook
+    data = pd.DataFrame(...)  # Load or create your data here
 
-# Function to create an image placeholder
-def create_image_placeholder(url: str, width: int = 150, height: int = 150) -> Div:
-    """
-    Creates an image placeholder for the dashboard.
+    # Prepare data for the donut plot
+    wedge_data = prepare_wedge_data(data, 'cluster', Category10[10])
+    donut_plot = create_donut_plot("Donut Plot Example", wedge_data, 'cluster')
 
-    Parameters:
-        url (str): URL of the image.
-        width (int): Width of the image. Defaults to 150.
-        height (int): Height of the image. Defaults to 150.
-
-    Returns:
-        Div: Bokeh Div object containing the image placeholder.
-    """
-    return Div(text=f"<img src='{url}' width='{width}' height='{height}'/>")
-
-# Main function to set up the dashboard
-def setup_dashboard(data: pd.DataFrame) -> None:
-    """
-    Sets up the dashboard with all visualizations.
-
-    Parameters:
-        data (pd.DataFrame): The DataFrame containing the data for visualizations.
-
-    Returns:
-        None
-    """
-    colors = Category10[10]  # Example color palette
-    wedge_data = prepare_wedge_data(data, 'Cluster', colors)
-
-    donut_plot = create_donut_plot("Donut Plot of Clusters", wedge_data, 'Cluster')
-    
     # Create a ColumnDataSource for the scatter plot
-    scatter_data_source = create_column_data_source(data)
-    scatter_tooltips = [("X", "@x"), ("Y", "@y"), ("Cluster", "@color")]
-    scatter_plot = create_scatter_plot(scatter_data_source, scatter_tooltips)
+    data_source = create_column_data_source(data)
 
-    # Create minimap for the scatter plot
-    minimap = create_minimap(scatter_data_source, scatter_plot)
+    # Create the main scatter plot
+    scatter_tooltips = [("X", "@x"), ("Y", "@y"), ("Color", "@color")]
+    scatter_plot_main = create_scatter_plot(data_source, scatter_tooltips)
 
-    # Create the toggle button
-    toggle_button = create_toggle_button(minimap)
+    # Create a minimap
+    minimap = create_minimap(data_source, scatter_plot_main)
 
-    # Create text blurb and image placeholders
-    text_blurb = create_text_blurb()
-    image_placeholder = create_image_placeholder("https://example.com/image.png")
-
-    # Arrange layout
-    layout = column(text_blurb, donut_plot, row(scatter_plot, minimap), toggle_button, image_placeholder)
-
-    # Add to document
+    # Create the layout and display
+    layout = column(donut_plot, scatter_plot_main, minimap)
     curdoc().add_root(layout)
-    show(layout)
+    show(layout)  # Display the dashboard
 
-# # Example usage with dummy data
-# if __name__ == "__main__":
-#     # Sample data generation
-#     sample_data = pd.DataFrame({
-#         'x': np.random.rand(100),
-#         'y': np.random.rand(100),
-#         'Cluster': np.random.randint(1, 4, size=100)  # Clusters 1, 2, or 3
-#     })
-
-#     # Run dashboard setup
-#     setup_dashboard(sample_data)
+if __name__ == "__main__":
+    main()
